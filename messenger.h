@@ -16,8 +16,8 @@ enum DAEMON_COMMAND
 bool daemon_is_up();
 bool daemon_is_sniffed();
 bool send_command(int c);
-bool send_ip(struct ipv6 res);
-bool recive_stat_header(struct stat_header header);
-bool recive_stat(int cnt, struct stat_response response[]);
-bool send_intefrace(char* iface);
-bool recive_interface(char* iface);
+bool send_ip(struct Ipv6 res);
+bool receive_stat_header(struct StatHeader header);
+bool receive_stat(int cnt, struct StatResponse response[]);
+bool send_interface(char* iface);
+bool receive_interface(char* iface);

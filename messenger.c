@@ -11,18 +11,18 @@ bool daemon_is_sniffed() {
 bool send_command(int c) {
     return true;
 }
-bool send_ip(struct ipv6 res) {
+bool send_ip(struct Ipv6 res) {
     return true;
 }
-bool recive_stat_header(struct stat_header header) {
+bool receive_stat_header(struct StatHeader header) {
     return true;
 }
-bool recive_stat(int cnt, struct stat_response response[]) {
+bool receive_stat(int cnt, struct StatResponse response[]) {
     return true;
 }
-bool send_intefrace(char* iface) {
+bool send_interface(char* iface) {
     return true;
 }
-bool recive_interface(char* iface) {
+bool receive_interface(char* iface) {
     return true;
 }

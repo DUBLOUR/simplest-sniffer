@@ -43,7 +43,7 @@ int handle_stop() {
 int handle_show(char *raw_ip) {
     printf("show %s\n", raw_ip);
 
-    struct ipv6 ip;
+    struct Ipv6 ip;
     if (!convert_ip(raw_ip, ip)) {
         print_help_invalid_ip();
         return INVALID_INPUT_CODE;
@@ -57,8 +57,8 @@ int handle_show(char *raw_ip) {
     send_command(DSHOW_IPV6);
     send_ip(ip);
 
-    struct stat_response response[1];
-    if (!recive_stat(1, response))
+    struct StatResponse response[1];
+    if (!receive_stat(1, response))
         return 1;
 
     print_stat(1, response);
@@ -74,10 +74,10 @@ int handle_select(char *iface) {
     }
 
     send_command(DSELECT);
-    send_intefrace(iface);
+    send_interface(iface);
 
     char *new_iface;
-    if (!recive_interface(new_iface))
+    if (!receive_interface(new_iface))
         return 1;
 
     print_select_iface(new_iface);
@@ -93,14 +93,14 @@ int handle_stat(char *iface) {
     }
 
     send_command(DSTAT_FILTERED);
-    send_intefrace(iface);
+    send_interface(iface);
 
-    struct stat_header header;
-    if (!recive_stat_header(header))
+    struct StatHeader header;
+    if (!receive_stat_header(header))
         return 1;
 
-    struct stat_response response[header.cnt];
-    if (!recive_stat(header.cnt, response))
+    struct StatResponse response[header.cnt];
+    if (!receive_stat(header.cnt, response))
         return 1;
 
     print_stat(header.cnt, response);
@@ -117,12 +117,12 @@ int handle_stat_all() {
 
     send_command(DSTAT);
 
-    struct stat_header header;
-    if (!recive_stat_header(header))
+    struct StatHeader header;
+    if (!receive_stat_header(header))
         return 1;
 
-    struct stat_response response[header.cnt];
-    if (!recive_stat(header.cnt, response))
+    struct StatResponse response[header.cnt];
+    if (!receive_stat(header.cnt, response))
         return 1;
 
     print_stat(header.cnt, response);

@@ -2,7 +2,7 @@
 #include "printer.h"
 
 
-void print_stat(int cnt, struct stat_response rows[]) {
+void print_stat(int cnt, struct StatResponse rows[]) {
     printf("Print %d rows:\n", cnt);
 }
 

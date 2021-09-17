@@ -26,9 +26,9 @@ void print_help_stat() {
 }
 
 void print_help_invalid_ip() {
-    printf("IP-adress is invalid\n");
+    printf("IP-address is invalid\n");
 }
 
 void print_help_daemon_is_down() {
-    printf("Deamon is down\n");
+    printf("Daemon is down\n");
 }
