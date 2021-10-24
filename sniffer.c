@@ -70,27 +70,15 @@ int ip_from_str(char* str, ip_addr* ip) {
 void another_callback(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
 {
 
-    static int count=0;
-    ++count;
-    const struct sniff_ip *ip;
-    u_int size_ip;
-
-    ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-    size_ip = IP_HL(ip)*4;
+    static int count=0; ++count;
+    const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    u_int size_ip = IP_HL(ip)*4;
     if (size_ip < 20) {
         printf("   * Invalid IP header length: %u bytes\n", size_ip);
         return;
     }
-//    printf("Packet Count: %d\n", count);
-//    printf("Received Packet Size: %d\n", pkthdr->len);
-//    printf("Ip_dest: %x\nIp_from: %x\n", ip->ip_dst, ip->ip_src);
-
-
-    char srcname[100];
-    strcpy(srcname, inet_ntoa(ip->ip_src));
-
-//    printf("%d-th package is from %s\n", count, str_from_ip( (ip->ip_src).s_addr ));
-    printf("%d-th package is from %s\n", count, srcname);
+    
+    printf("%d-th package is from %s\n", count, inet_ntoa(ip->ip_src));
 
 }
 
