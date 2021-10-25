@@ -14,10 +14,6 @@ struct sniff_ip {
     u_short ip_len;		/* total length */
     u_short ip_id;		/* identification */
     u_short ip_off;		/* fragment offset field */
-#define IP_RF 0x8000		/* reserved fragment flag */
-#define IP_DF 0x4000		/* don't fragment flag */
-#define IP_MF 0x2000		/* more fragments flag */
-#define IP_OFFMASK 0x1fff	/* mask for fragmenting bits */
     u_char ip_ttl;		/* time to live */
     u_char ip_p;		/* protocol */
     u_short ip_sum;		/* checksum */
@@ -66,65 +62,76 @@ int ip_from_str(char* str, ip_addr* ip) {
     return 0;
 }
 
-
-void another_callback(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
-{
-
+void handle_ip(in_addr ip) {
     static int count=0; ++count;
+    printf("%d-th package is from %s\n", count, inet_ntoa(ip));
+}
+
+void source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
+{
     const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
     u_int size_ip = IP_HL(ip)*4;
     if (size_ip < 20) {
-        printf("   * Invalid IP header length: %u bytes\n", size_ip);
+//        printf("   * Invalid IP header length: %u bytes\n", size_ip);
         return;
     }
-    
-    printf("%d-th package is from %s\n", count, inet_ntoa(ip->ip_src));
 
+    handle_ip(ip->ip_src);
 }
 
 
-
-
-
-int main()
-{
-    char *dev;
+char** get_device_list() {
     pcap_if_t *alldevsp;
     char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t* descr;
-    struct bpf_program fp;
-    bpf_u_int32 maskp;
-    bpf_u_int32 netp;
-
 
     if(pcap_findalldevs(&alldevsp,errbuf)==-1) {
         printf("\nerror in pcap findall devs");
-        return -1;
-    }
-
-    printf("The interfaces present on the system are:");
-    for(pcap_if_t *temp=alldevsp; temp; temp = temp->next){
-        static int i = 0;
-        printf("\n%d : %s", i++, temp->name);
-    }
-
-    dev = alldevsp->name;
-
-    if(dev == NULL) {
-        fprintf(stderr, "%s\n", errbuf);
         exit(1);
     }
 
-    pcap_lookupnet(dev, &netp, &maskp, errbuf);
+    int cnt_devs = 0;
 
-    fprintf(stdout, "dev: %s\nnet: %0x\nmask: %x\n", dev, netp, maskp);
+    for(pcap_if_t *temp=alldevsp; temp; temp = temp->next)
+        ++cnt_devs;
 
-    descr = pcap_open_live(dev, BUFSIZ, 1,-1, errbuf);
+
+    char **lst = (char **)malloc(cnt_devs * sizeof(char*));
+    for(pcap_if_t *temp=alldevsp; temp; temp = temp->next){
+        static int i = 0;
+        lst[i] = (char *)malloc(strlen(temp->name) * sizeof(char));
+        strcpy(lst[i], temp->name);
+        i++;
+    }
+
+    return lst;
+}
+
+void print_inet_devices(char** devs) {
+    int n = sizeof(devs) / sizeof(devs[0]);
+
+    printf("The interfaces present on the system are:");
+    for (int i=0; i<n; ++i)
+        printf("%d : %s\n", i, devs[i]);
+}
+
+
+void sniff(char* device, pcap_handler handler)
+{
+    char errbuf[PCAP_ERRBUF_SIZE];
+    bpf_u_int32 maskp;
+    bpf_u_int32 netp;
+    pcap_lookupnet(device, &netp, &maskp, errbuf);
+
+    fprintf(stdout, "dev: %s\nnet: %0x\nmask: %x\n", device, netp, maskp);
+
+
+    pcap_t* descr = pcap_open_live(dev, BUFSIZ, 1,-1, errbuf);
     if(descr == NULL) {
         printf("pcap_open_live(): %s\n", errbuf);
         exit(1);
     }
 
+    struct bpf_program fp;
     if(pcap_compile(descr, &fp, "ip", 0, netp) == -1) {
         fprintf(stderr, "Error calling pcap_compile\n");
         exit(1);
@@ -135,6 +142,19 @@ int main()
         exit(1);
     }
 
-    pcap_loop(descr, -1, another_callback, NULL);
-    return 0;
+    pcap_loop(descr, -1, handler, NULL);
+}
+
+
+
+int main() {
+    char **inet_devs = get_device_list();
+    print_inet_devices(inet_devs);
+    char *dev = inet_devs[0];
+    if (dev == NULL) {
+        printf("PCap can't find devices");
+        return 1;
+    }
+
+    sniff(dev, )
 }
