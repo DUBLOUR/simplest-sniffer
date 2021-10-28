@@ -5,26 +5,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-
-/* IP header */
-struct sniff_ip {
-    u_char ip_vhl;		/* version << 4 | header length >> 2 */
-    u_char ip_tos;		/* type of service */
-    u_short ip_len;		/* total length */
-    u_short ip_id;		/* identification */
-    u_short ip_off;		/* fragment offset field */
-    u_char ip_ttl;		/* time to live */
-    u_char ip_p;		/* protocol */
-    u_short ip_sum;		/* checksum */
-    struct in_addr ip_src,ip_dst; /* source and dest address */
-};
-#define IP_HL(ip)		(((ip)->ip_vhl) & 0x0f)
-#define IP_V(ip)		(((ip)->ip_vhl) >> 4)
-#define SIZE_ETHERNET 14
-
-
-typedef uint32_t ip_addr;
+#include "sniffer.h"
 
 char* str_from_ip(ip_addr addr) {
     char *str = malloc(15 * sizeof(char));
@@ -62,13 +43,12 @@ int ip_from_str(char* str, ip_addr* ip) {
     return 0;
 }
 
-void handle_ip(in_addr ip) {
+void handle_ip(struct in_addr ip) {
     static int count=0; ++count;
     printf("%d-th package is from %s\n", count, inet_ntoa(ip));
 }
 
-void source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
-{
+void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
     const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
     u_int size_ip = IP_HL(ip)*4;
     if (size_ip < 20) {
@@ -79,6 +59,35 @@ void source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_cha
     handle_ip(ip->ip_src);
 }
 
+struct in_addr empty_addr() {
+    struct in_addr *addr = malloc(sizeof(struct in_addr));
+    addr->s_addr = 0;
+    return *addr;
+}
+
+struct in_addr source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
+    const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    u_int size_ip = IP_HL(ip)*4;
+    if (size_ip < 20)
+        return empty_addr();
+    return ip->ip_src;
+}
+
+
+/*
+void xsource_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
+    const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    u_int size_ip = IP_HL(ip)*4;
+    if (size_ip < 20) {
+        return;
+    }
+    handle_ip(ip->ip_src);
+}
+
+
+void *new_packet_handler(void()* h) {
+
+}*/
 
 char** get_device_list() {
     pcap_if_t *alldevsp;
@@ -125,7 +134,7 @@ void sniff(char* device, pcap_handler handler)
     fprintf(stdout, "dev: %s\nnet: %0x\nmask: %x\n", device, netp, maskp);
 
 
-    pcap_t* descr = pcap_open_live(dev, BUFSIZ, 1,-1, errbuf);
+    pcap_t* descr = pcap_open_live(device, BUFSIZ, 1,-1, errbuf);
     if(descr == NULL) {
         printf("pcap_open_live(): %s\n", errbuf);
         exit(1);
@@ -145,7 +154,7 @@ void sniff(char* device, pcap_handler handler)
     pcap_loop(descr, -1, handler, NULL);
 }
 
-
+/*
 
 int main() {
     char **inet_devs = get_device_list();
@@ -157,4 +166,4 @@ int main() {
     }
 
     sniff(dev, )
-}
+}*/

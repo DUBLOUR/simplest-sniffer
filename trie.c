@@ -1,13 +1,8 @@
-#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-
-struct trie_node {
-    int value;
-    struct trie_node* next[2];
-};
+#include "trie.h"
 
 struct trie_node* new_node() {
     struct  trie_node *node = malloc(sizeof(struct trie_node));
@@ -20,12 +15,6 @@ struct trie_node* new_node() {
     return node;
 }
 
-struct trie_entrypoint {
-    char *key;
-    struct trie_node *node;
-    struct trie_entrypoint* next;
-};
-
 struct trie_entrypoint* new_entypoint(char *key) {
     struct trie_entrypoint *p = malloc(sizeof(struct trie_entrypoint));
     if (p == NULL)
@@ -35,11 +24,6 @@ struct trie_entrypoint* new_entypoint(char *key) {
     p->next = NULL;
     return p;
 }
-
-struct trie {
-    struct trie_entrypoint* root;
-};
-
 
 struct trie_entrypoint* trie_add_root(struct trie* t, char* key) {
     struct trie_entrypoint* r = t->root;
@@ -116,7 +100,7 @@ void _trie_traversing(struct trie_node* v, int shift, int sum) {
 
     //no sons
     if (v->next[0] == NULL && v->next[1] == NULL) {
-        printf(": %d (%d)\n", v->value, sum);
+        printf(": %d (%X)\n", v->value, sum);
         return;
     }
     //tho sons
@@ -144,83 +128,4 @@ void trie_traversing(struct trie* t) {
         printf("%s:\n", r->key);
         _trie_traversing(r->node, 0, 0);
     }
-}
-
-int main()
-{
-
-    unsigned int x = 512 + 5;
-    printf("%u\n", &x );
-    printf("%u\n", (char*)&x );
-    printf("%u\n", &x+1);
-    printf("%u\n", (char*)&x+1 );
-    char *p1 = (char *)&x;
-    printf("%u %u\n", p1, *p1);
-    printf("%u %u\n", p1-1, *(p1-1));
-    printf("%u %u\n\n", p1+1, *(p1+1));
-    void *p2 = &x;
-    printf("%u %u\n", p2, *((char*)p2) );
-    printf("%u %u\n", p2-1, *((char*)p2-1));
-    printf("%u %u\n\n", p2+1, *((char*)p2+1));
-
-//    return 0;
-    printf("xxx\n");
-
-    char dev[] = "eth0";
-    struct trie *t = malloc(sizeof(struct trie));
-    trie_add_root(t, dev);
-    unsigned ip;
-    ip = 0; trie_increase(t, dev, &ip, 1);
-    ip = 90; trie_increase(t, dev, &ip, 1);
-    ip = 20; trie_increase(t, dev, &ip, 1);
-    ip = 3; trie_increase(t, dev, &ip, 1);
-    ip = 140; trie_increase(t, dev, &ip, 1);
-    ip = 5; trie_increase(t, dev, &ip, 1);
-    ip = 60; trie_increase(t, dev, &ip, 1);
-    ip = 13; trie_increase(t, dev, &ip, 1);
-    ip = 60; trie_increase(t, dev, &ip, 1);
-    ip = 9; trie_increase(t, dev, &ip, 1);
-    ip = 9; trie_increase(t, dev, &ip, 1);
-    ip = 10; trie_increase(t, dev, &ip, 1);
-
-    char dev2[] = "wlan1";
-    ip = 199; trie_increase(t, dev2, &ip, 2);
-    ip = 205; trie_increase(t, dev2, &ip, 2);
-    ip = 80; trie_increase(t, dev2, &ip, 2);
-//    return 0;
-    ip = 0;
-
-    printf("%d\n", trie_get(t, dev, &ip, 1));
-
-
-    trie_traversing(t);
-/**
-10 15 4
-
-
-10 = 2+8 = 01010
-15 = 1+2+4+8 = 01111
-4 = 00100
-32
-
-x --0-> x --0-> x --1-> x --0-> x --0-> x
-         \
-          --1-> x --0-> x --1-> x --0-> x
-                 \
-                  --1-> x --1-> x --1-> x
-
-
-eth0:
--(4)--0--(4)--0--(4)--0--(1)--1--(1)--0--(1)
-          \---1--(3)--0--(2)--1--(2)
-                  \---1--(1)--1--(1)
-
-
-eth0:
--(12)--0--(11)--0--(10)--0--(8)--0--(7)--0--(3)--0--(2)--0--(1)--0--(1): 0
-            \---1--(1)--0--(1)--1--(1)--1--(1)--0--(1)--1--(1)--0--(1): 90
-   \---1--(1)--0--(1)--0--(1)--0--(1)--1--(1)--1--(1)--0--(1)--0--(1): 140
-
-
-*/
 }
