@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "trie.h"
 
+
 struct trie_node* new_node() {
     struct  trie_node *node = malloc(sizeof(struct trie_node));
     if (node == NULL)
@@ -23,6 +24,13 @@ struct trie_entrypoint* new_entypoint(char *key) {
     p->node = new_node();
     p->next = NULL;
     return p;
+}
+
+struct trie* new_trie() {
+    struct trie *t = malloc(sizeof(struct trie));
+    t->root = NULL;
+    pthread_mutex_init(&(t->__mutex), NULL);
+    return t;
 }
 
 struct trie_entrypoint* trie_add_root(struct trie* t, char* key) {
@@ -58,16 +66,19 @@ void _trie_increase(struct trie_node* v, char *data, int data_len, int pos) {
 }
 
 void trie_increase(struct trie* t, char* key, void *data, int cnt_bytes) {
+    pthread_mutex_lock(&(t->__mutex));
+
     for (struct trie_entrypoint* tmp=t->root; tmp!=NULL; tmp=tmp->next) {
-//        printf("t_inc %s %s\n", key, tmp->key);
         if (!strcmp(tmp->key, key)) {
             _trie_increase(tmp->node, data, cnt_bytes, 0);
+            pthread_mutex_unlock(&(t->__mutex));
             return;
         }
     }
 
     struct trie_entrypoint* new_entry = trie_add_root(t, key);
     _trie_increase(new_entry->node, data, cnt_bytes, 0);
+    pthread_mutex_unlock(&(t->__mutex));
 }
 
 int _trie_get(struct trie_node* v, char *data, int data_len, int pos) {
@@ -81,9 +92,15 @@ int _trie_get(struct trie_node* v, char *data, int data_len, int pos) {
 }
 
 int trie_get(struct trie* t, char* key, void *data, int cnt_bytes) {
+    pthread_mutex_lock(&(t->__mutex));
     for (struct trie_entrypoint* tmp=t->root; t!=NULL; t++)
-        if (!strcmp(tmp->key, key))
-            return _trie_get(tmp->node, data, cnt_bytes, 0);
+        if (!strcmp(tmp->key, key)) {
+            int res = _trie_get(tmp->node, data, cnt_bytes, 0);
+            pthread_mutex_unlock(&(t->__mutex));
+            return res;
+        }
+
+    pthread_mutex_unlock(&(t->__mutex));
     return 0;
 }
 
@@ -93,11 +110,8 @@ void _trie_traversing(struct trie_node* v, int shift, int sum) {
         return;
     }
 
-    char s[10];
-    sprintf(s, "-(*)");
-    printf("%s", s);
-    shift += strlen(s);
-
+    printf("-(*)");
+    shift += 8;
     //no sons
     if (v->next[0] == NULL && v->next[1] == NULL) {
         printf(": %d (%X)\n", v->value, sum);
@@ -106,26 +120,28 @@ void _trie_traversing(struct trie_node* v, int shift, int sum) {
     //tho sons
     if (v->next[0] != NULL && v->next[1] != NULL) {
         printf("--0-");
-        _trie_traversing(v->next[0], shift+4, sum*2);
-        for (int i=0; i<shift-2; ++i)
+        _trie_traversing(v->next[0], shift, sum*2);
+        for (int i=0; i<shift-6; ++i)
             printf(" ");
         printf("\\---1-");
-        _trie_traversing(v->next[1], shift+4, sum*2+1);
+        _trie_traversing(v->next[1], shift, sum*2+1);
         return;
     }
     //only one son
     if (v->next[0] != NULL) {
         printf("--0-");
-        _trie_traversing(v->next[0], shift+4, sum*2);
+        _trie_traversing(v->next[0], shift, sum*2);
     } else {
         printf("--1-");
-        _trie_traversing(v->next[1], shift+4, sum*2+1);
+        _trie_traversing(v->next[1], shift, sum*2+1);
     }
 }
 
 void trie_traversing(struct trie* t) {
+    pthread_mutex_lock(&(t->__mutex));
     for (struct trie_entrypoint* r=t->root; r!=NULL; r=r->next) {
         printf("%s:\n", r->key);
         _trie_traversing(r->node, 0, 0);
     }
+    pthread_mutex_unlock(&(t->__mutex));
 }

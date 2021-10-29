@@ -1,5 +1,4 @@
 #include <pcap.h>
-#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,46 +6,22 @@
 #include <arpa/inet.h>
 #include "sniffer.h"
 
-char* str_from_ip(ip_addr addr) {
-    char *str = malloc(15 * sizeof(char));
-    sprintf(str, "%d.%d.%d.%d",
-            addr>>24,
-            (addr>>16)&255,
-            (addr>>8)&255,
-            addr&255);
-    return str;
-}
+/* IP header */
+struct sniff_ip {
+    u_char ip_vhl;		/* version << 4 | header length >> 2 */
+    u_char ip_tos;		/* type of service */
+    u_short ip_len;		/* total length */
+    u_short ip_id;		/* identification */
+    u_short ip_off;		/* fragment offset field */
+    u_char ip_ttl;		/* time to live */
+    u_char ip_p;		/* protocol */
+    u_short ip_sum;		/* checksum */
+    struct in_addr ip_src,ip_dst; /* source and dest address */
+};
+#define IP_HL(ip)		(((ip)->ip_vhl) & 0x0f)
+#define IP_V(ip)		(((ip)->ip_vhl) >> 4)
+#define SIZE_ETHERNET 14
 
-
-int ip_from_str(char* str, ip_addr* ip) {
-    *ip = 0;
-    int sz = strlen(str);
-    if (sz > 15) return -1;
-    int current_part = 0, parts_cnt = 0;
-    for (int i=0; i<sz; ++i) {
-        if (isdigit(str[i])) {
-            current_part = current_part * 10 + str[i]-'0';
-            if (current_part > 255)
-                return -1;
-        } else if (str[i] == '.') {
-            ++parts_cnt;
-            (*ip) = ((*ip)<<8) | current_part;
-            current_part = 0;
-        } else
-            return -1;
-    }
-    (*ip) = ((*ip)<<8) | current_part;
-
-    if (parts_cnt != 3)
-        return -1;
-
-    return 0;
-}
-
-void handle_ip(struct in_addr ip) {
-    static int count=0; ++count;
-    printf("%d-th package is from %s\n", count, inet_ntoa(ip));
-}
 
 void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
     const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
@@ -56,7 +31,8 @@ void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, cons
         return;
     }
 
-    handle_ip(ip->ip_src);
+    static int count=0; ++count;
+    printf("%d-th package is from %s\n", count, inet_ntoa(ip->ip_src));
 }
 
 struct in_addr empty_addr() {
@@ -73,21 +49,6 @@ struct in_addr source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, c
     return ip->ip_src;
 }
 
-
-/*
-void xsource_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
-    const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-    u_int size_ip = IP_HL(ip)*4;
-    if (size_ip < 20) {
-        return;
-    }
-    handle_ip(ip->ip_src);
-}
-
-
-void *new_packet_handler(void()* h) {
-
-}*/
 
 char** get_device_list() {
     pcap_if_t *alldevsp;
@@ -118,7 +79,7 @@ char** get_device_list() {
 void print_inet_devices(char** devs) {
     int n = sizeof(devs) / sizeof(devs[0]);
 
-    printf("The interfaces present on the system are:");
+    printf("The interfaces present on the system are:\n");
     for (int i=0; i<n; ++i)
         printf("%d : %s\n", i, devs[i]);
 }
@@ -153,17 +114,3 @@ void sniff(char* device, pcap_handler handler)
 
     pcap_loop(descr, -1, handler, NULL);
 }
-
-/*
-
-int main() {
-    char **inet_devs = get_device_list();
-    print_inet_devices(inet_devs);
-    char *dev = inet_devs[0];
-    if (dev == NULL) {
-        printf("PCap can't find devices");
-        return 1;
-    }
-
-    sniff(dev, )
-}*/
