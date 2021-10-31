@@ -5,106 +5,95 @@
 #include "trie.h"
 
 
-struct trie_node* new_node() {
-    struct  trie_node *node = malloc(sizeof(struct trie_node));
+struct trie_node_t* new_node()
+{
+    struct  trie_node_t *node = malloc(sizeof(struct trie_node_t));
     if (node == NULL)
         return NULL;
 
     node->value = 0;
-    node->next[0] = NULL;
-    node->next[1] = NULL;
+    node->children[0] = NULL;
+    node->children[1] = NULL;
     return node;
 }
 
-struct trie_entrypoint* new_entypoint(char *key) {
-    struct trie_entrypoint *p = malloc(sizeof(struct trie_entrypoint));
-    if (p == NULL)
-        return NULL;
-    p->key = key;
-    p->node = new_node();
-    p->next = NULL;
-    return p;
+void del_trie_node(struct trie_node_t* v)
+{
+    if (!v) return;
+    del_trie_node(v->children[0]);
+    del_trie_node(v->children[1]);
+    free(v);
 }
 
-struct trie* new_trie() {
-    struct trie *t = malloc(sizeof(struct trie));
-    t->root = NULL;
-    pthread_mutex_init(&(t->__mutex), NULL);
+trie* new_trie()
+{
+    trie *t = malloc(sizeof(trie));
+    t->root = new_node();
+    pthread_mutex_init(&(t->mutex), NULL);
     return t;
 }
 
-struct trie_entrypoint* trie_add_root(struct trie* t, char* key) {
-    struct trie_entrypoint* r = t->root;
-    if (r == NULL) {
-        t->root = new_entypoint(key);
-        return t->root;
-    }
-    while (r->next != NULL)
-        r = r->next;
-    r -> next = new_entypoint(key);
-    return r->next;
+void del_trie(trie* t)
+{
+    del_trie_node(t->root);
+    free(t);
 }
 
-
-bool _trie_turn(char *data, int data_len, int pos) {
+bool get_ip_turn(char *data, int data_len, int pos)
+{
+    data_len >>= 3;
     char *byte = data + (data_len-1 - (pos>>3));
     char bit = 1<<(7-(pos&7));
     return !!(*byte & bit);
 }
 
-void _trie_increase(struct trie_node* v, char *data, int data_len, int pos) {
-    v->value++;
-    if (pos == data_len*8)
-        return;
-
-    bool turn = _trie_turn(data, data_len, pos);
-
-//    printf("_t_inc %d %d\n", pos, turn);
-    if (v->next[turn] == NULL)
-        v->next[turn] = new_node();
-    _trie_increase(v->next[turn], data, data_len, pos+1);
+bool get_turn(char *data, int data_len, int pos)
+{
+    return (data[pos>>3] >> (pos&7))&1;
 }
 
-void trie_increase(struct trie* t, char* key, void *data, int cnt_bytes) {
-    pthread_mutex_lock(&(t->__mutex));
+void trie_increase_val(trie* t, void *path, int path_len_bits, int inc_val)
+{
+    pthread_mutex_lock(&(t->mutex));
 
-    for (struct trie_entrypoint* tmp=t->root; tmp!=NULL; tmp=tmp->next) {
-        if (!strcmp(tmp->key, key)) {
-            _trie_increase(tmp->node, data, cnt_bytes, 0);
-            pthread_mutex_unlock(&(t->__mutex));
-            return;
-        }
+    struct trie_node_t* v = t->root;
+    for (int pos=0; pos<path_len_bits; ++pos) {
+        v->value += inc_val;
+
+        bool turn = get_turn(path, path_len_bits, pos);
+        if (v->children[turn] == NULL)
+            v->children[turn] = new_node();
+        v = v->children[turn];
     }
+    v->value += inc_val;
 
-    struct trie_entrypoint* new_entry = trie_add_root(t, key);
-    _trie_increase(new_entry->node, data, cnt_bytes, 0);
-    pthread_mutex_unlock(&(t->__mutex));
+    pthread_mutex_unlock(&(t->mutex));
 }
 
-int _trie_get(struct trie_node* v, char *data, int data_len, int pos) {
-    if (v == NULL)
-        return 0;
-    if (pos == data_len*8)
-        return v->value;
-
-    bool turn = _trie_turn(data, data_len, pos);
-    return _trie_get(v->next[turn], data, data_len, pos+1);
+void trie_increase(trie* t, void *path, int path_len_bits)
+{
+    trie_increase_val(t, path, path_len_bits, 1);
 }
 
-int trie_get(struct trie* t, char* key, void *data, int cnt_bytes) {
-    pthread_mutex_lock(&(t->__mutex));
-    for (struct trie_entrypoint* tmp=t->root; t!=NULL; t++)
-        if (!strcmp(tmp->key, key)) {
-            int res = _trie_get(tmp->node, data, cnt_bytes, 0);
-            pthread_mutex_unlock(&(t->__mutex));
-            return res;
-        }
+int trie_get(trie* t, void *path, int path_len_bits)
+{
+    pthread_mutex_lock(&(t->mutex));
 
-    pthread_mutex_unlock(&(t->__mutex));
-    return 0;
+    struct trie_node_t* v = t->root;
+    for (int pos=0; pos<path_len_bits; ++pos) {
+        bool turn = get_turn(path, path_len_bits, pos);
+        v = v->children[turn];
+        if (!v)
+            break;
+    }
+    int res = v ? v->value : 0;
+
+    pthread_mutex_unlock(&(t->mutex));
+    return res;
 }
 
-void _trie_traversing(struct trie_node* v, int shift, int sum) {
+void _trie_traversing(struct trie_node_t* v, int shift, int sum)
+{
     if (v == NULL) {
         printf("-(*)\n");
         return;
@@ -113,35 +102,114 @@ void _trie_traversing(struct trie_node* v, int shift, int sum) {
     printf("-(*)");
     shift += 8;
     //no sons
-    if (v->next[0] == NULL && v->next[1] == NULL) {
+    if (v->children[0] == NULL && v->children[1] == NULL) {
         printf(": %d (%X)\n", v->value, sum);
         return;
     }
     //tho sons
-    if (v->next[0] != NULL && v->next[1] != NULL) {
+    if (v->children[0] != NULL && v->children[1] != NULL) {
         printf("--0-");
-        _trie_traversing(v->next[0], shift, sum*2);
+        _trie_traversing(v->children[0], shift, sum*2);
         for (int i=0; i<shift-6; ++i)
             printf(" ");
         printf("\\---1-");
-        _trie_traversing(v->next[1], shift, sum*2+1);
+        _trie_traversing(v->children[1], shift, sum*2+1);
         return;
     }
     //only one son
-    if (v->next[0] != NULL) {
+    if (v->children[0] != NULL) {
         printf("--0-");
-        _trie_traversing(v->next[0], shift, sum*2);
+        _trie_traversing(v->children[0], shift, sum*2);
     } else {
         printf("--1-");
-        _trie_traversing(v->next[1], shift, sum*2+1);
+        _trie_traversing(v->children[1], shift, sum*2+1);
     }
 }
 
-void trie_traversing(struct trie* t) {
-    pthread_mutex_lock(&(t->__mutex));
-    for (struct trie_entrypoint* r=t->root; r!=NULL; r=r->next) {
-        printf("%s:\n", r->key);
-        _trie_traversing(r->node, 0, 0);
-    }
-    pthread_mutex_unlock(&(t->__mutex));
+void trie_traversing(trie* t)
+{
+    pthread_mutex_lock(&(t->mutex));
+
+    _trie_traversing(t->root, 0, 0);
+
+    pthread_mutex_unlock(&(t->mutex));
 }
+
+
+void traversing_dump(struct trie_node_t* t, int pos, int* total_size, int* cnt_node, char* bit_path, void* data)
+{
+    if (t->children[0]==NULL && t->children[1]==NULL) {
+        (*cnt_node)++;
+        int path_len = (pos|7)>>3;
+        if (!data) {
+            *total_size += sizeof(point_compressed) + sizeof(char)*path_len;
+            return;
+        }
+        point_compressed* p = (point_compressed*) data + *total_size;
+        p->value = t->value;
+        p->path_len_bit = pos;
+        p->path = NULL;
+        *total_size += sizeof(point_compressed);
+        memcpy(data + *total_size, bit_path, sizeof(char)*path_len);
+        printf("td %d %d %X\n", p->value, p->path_len_bit, *((unsigned*)bit_path) );
+        *total_size += sizeof(char)*path_len;
+        return;
+    }
+
+    bit_path[pos>>3] &= 0xff ^ (1<<(pos&7));
+    for (int i=0; i<2; ++i)
+        if (t->children[i]) {
+            bit_path[pos>>3] |= i<<(pos&7);
+            traversing_dump(t->children[i], pos + 1, total_size, cnt_node, bit_path, data);
+        }
+}
+
+trie_compressed *new_trie_compressed()
+{
+    trie_compressed *tc = malloc(sizeof(trie_compressed));
+    tc->cnt_point = 0;
+    tc->data_len = 0;
+    tc->data = NULL;
+    return tc;
+}
+
+void del_trie_compressed(trie_compressed* tc)
+{
+    if (tc->data)
+        free(tc->data);
+    free(tc);
+}
+
+
+trie_compressed* trie_dump(trie *t)
+{
+    char tmp_path[1024];
+    trie_compressed* tc = new_trie_compressed();
+
+    pthread_mutex_lock(&(t->mutex));
+
+    traversing_dump(t->root, 0, &(tc->data_len), &(tc->cnt_point), tmp_path, NULL);
+    tc->data = malloc(sizeof(char)*(tc->data_len));
+    int sz = 0, node_cnt = 0;
+    traversing_dump(t->root, 0, &sz, &node_cnt, tmp_path, tc->data);
+
+    pthread_mutex_unlock(&(t->mutex));
+    return tc;
+}
+
+trie* trie_load(trie_compressed* tc)
+{
+    trie* t = new_trie();
+
+    void* vp = tc->data;
+    for (int i=0; i<tc->cnt_point; i++) {
+        point_compressed* p = (point_compressed*) vp;
+        trie_increase_val(t, vp+sizeof(point_compressed), p->path_len_bit, p->value);
+        size_t point_size = sizeof(point_compressed) +
+                            sizeof(char) * ((p->path_len_bit|7)>>3);
+        vp += point_size;
+    }
+    return t;
+}
+
+
