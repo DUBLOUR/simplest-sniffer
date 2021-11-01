@@ -9,9 +9,9 @@
 #include <arpa/inet.h>
 #include "sniffer.h"
 #include "stat_holder.h"
-#include "common.h"
+#include "../common/common.h"
 
-#define SAVE_FILE "dump.sav"
+#define SAVE_FILE "/tmp/dump.sav"
 
 char *current_dev;
 char **all_inet_devs;

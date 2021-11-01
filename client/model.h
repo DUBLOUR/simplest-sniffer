@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "common.h"
+#include "../common/common.h"
 
 struct StatHeader {
     int cnt;
