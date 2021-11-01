@@ -155,7 +155,7 @@ int handle_stat_all()
 
 
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     if (argc == 1) {
         print_help_general();

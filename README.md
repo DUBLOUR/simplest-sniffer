@@ -1,13 +1,16 @@
 # simplest-sniffer
 
-### build:
+### Build:
 ```bash
 mkdir build && cd build
 cmake ..
 make
 ```
 ### Run daemon:
-```sudo snifferd```
+```sudo snifferd SAVE_FILENAME```
+
+If `SAVE_FILENAME` is empty then statistics is not persistent. 
+
 ### Use client:
 ```ssniffer --help```
 

@@ -11,17 +11,60 @@
 #include "stat_holder.h"
 #include "../common/common.h"
 
-#define SAVE_FILE "/tmp/dump.sav"
-
+char *save_file;
 char *current_dev;
 char **all_inet_devs;
 stat_holder *pkg_counter;
 trie* current_stat_trie;
 
+
+trie* load_stat(char *filename, bool verbose)
+{
+    if (verbose)
+        fprintf(stderr, "Load statistic from %s\n", filename);
+
+    trie_compressed* tc = new_trie_compressed();
+    FILE *save = fopen(filename,"rb");
+    fread(tc, sizeof(trie_compressed), 1, save);
+    tc->data = malloc(sizeof(char)*tc->data_len);
+    fread(tc->data, sizeof(char), tc->data_len, save);
+    fclose(save);
+
+    if (verbose)
+        fprintf(stderr, "Loaded %d ip address\n", tc->cnt_point);
+
+    trie* t = trie_load(tc);
+    del_trie_compressed(tc);
+
+    if (verbose)
+        fprintf(stderr, "Loaded data successfully encoded\n");
+    return t;
+}
+
+
+void stat_save(char *filename, trie* t, bool verbose)
+{
+    if (verbose)
+        fprintf(stderr, "Save statistic to %s\n", filename);
+    trie_compressed* tc = trie_dump(t);
+    FILE *save = fopen(filename,"wb");
+    fwrite(tc, sizeof(trie_compressed), 1, save);
+    fwrite(tc->data, sizeof(char), tc->data_len, save);
+    fclose(save);
+    del_trie_compressed(tc);
+
+    size_t total_len = sizeof(trie_compressed) + sizeof(char)*tc->data_len;
+    if (verbose)
+        fprintf(stderr, "%lu bytes successfully written\n",  total_len);
+}
+
+
 void counting_addresses(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
 {
     struct in_addr ip = source_extractor(arg, pkthdr, packet);
     trie_increase(current_stat_trie, &ip, 32);
+    if (save_file)
+        stat_save(save_file, current_stat_trie, false);
     if (1) {
         static int counter = 0;
         ++counter;
@@ -31,52 +74,14 @@ void counting_addresses(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_c
 }
 
 
-trie* load_stat(char *filename)
-{
-    fprintf(stderr, "Load statistic from %s\n", filename);
-
-    trie_compressed* tc = new_trie_compressed();
-    FILE *save = fopen(filename,"rb");
-    fread(tc, sizeof(trie_compressed), 1, save);
-    tc->data = malloc(sizeof(char)*tc->data_len);
-    fread(tc->data, sizeof(char), tc->data_len, save);
-    fclose(save);
-
-    fprintf(stderr, "Loaded %d ip address\n", tc->cnt_point);
-    trie* t = trie_load(tc);
-    del_trie_compressed(tc);
-
-    fprintf(stderr, "Loaded data successfully encoded\n");
-    return t;
-}
-
-
-
-void stat_save(char *filename, trie* t)
-{
-    fprintf(stderr, "Save statistic to %s\n", filename);
-    trie_compressed* tc = trie_dump(t);
-    FILE *save = fopen(filename,"wb");
-    fwrite(tc, sizeof(trie_compressed), 1, save);
-    fwrite(tc->data, sizeof(char), tc->data_len, save);
-    fclose(save);
-    del_trie_compressed(tc);
-
-    size_t total_len = sizeof(trie_compressed) + sizeof(char)*tc->data_len;
-    fprintf(stderr, "%lu bytes successfully written\n",  total_len);
-}
-
-
-
 void *start_counting_sniff(void *device)
 {
     if (1) {
-        current_stat_trie = stat_holder_add_dev(pkg_counter, current_dev)->t;
+//        current_stat_trie = stat_holder_add_dev(pkg_counter, current_dev)->t;
         sniff((char *) device, counting_addresses);
         pthread_exit(0);
     }
 }
-
 
 
 void *communicator()
@@ -97,8 +102,6 @@ void *communicator()
         printf("\nHandle command code %d\n", command);
 
         if (command == DSHOW_IPADDR) {
-            stat_save(SAVE_FILE, current_stat_trie);
-
             char *raw_ip = malloc(sizeof(char)*20);
             read(fd0, raw_ip, 20);
             printf("Received ip %s\n", raw_ip);
@@ -118,16 +121,13 @@ void *communicator()
             free(raw_ip);
             free(addr);
             free(res);
-
             break;
         }
 
         if (command == DSELECT) {
             continue;
         }
-
     }
-
 
     close(fd0);
     close(fd1);
@@ -135,18 +135,20 @@ void *communicator()
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
-    pkg_counter = new_stat_holder();
-    current_stat_trie = stat_holder_add_dev(pkg_counter, current_dev)->t;
-
-    if (0) {
-        current_stat_trie = load_stat(SAVE_FILE);
-        trie_traversing(current_stat_trie);
-    }
+    if (argc == 2)
+        save_file = argv[1];
 
     all_inet_devs = get_device_list();
     current_dev = all_inet_devs[0];
+
+    pkg_counter = new_stat_holder();
+    current_stat_trie = stat_holder_add_dev(pkg_counter, current_dev)->t;
+    if (save_file) {
+        current_stat_trie = load_stat(save_file, true);
+        pkg_counter->current->t = current_stat_trie;
+    }
 
     pthread_t t_sniff, t_comm;
     pthread_create(&t_sniff,NULL, start_counting_sniff, current_dev);
@@ -157,6 +159,5 @@ int main()
     }
 
     pthread_join(t_sniff,NULL);
-
 
 }
