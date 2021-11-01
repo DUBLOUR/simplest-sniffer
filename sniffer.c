@@ -23,7 +23,8 @@ struct sniff_ip {
 #define SIZE_ETHERNET 14
 
 
-void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
+void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
+{
     const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
     u_int size_ip = IP_HL(ip)*4;
     if (size_ip < 20) {
@@ -31,17 +32,20 @@ void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, cons
         return;
     }
 
-    static int count=0; ++count;
+    static int count=0;
+    ++count;
     printf("%d-th package is from %s\n", count, inet_ntoa(ip->ip_src));
 }
 
-struct in_addr empty_addr() {
+struct in_addr empty_addr()
+{
     struct in_addr *addr = malloc(sizeof(struct in_addr));
     addr->s_addr = 0;
     return *addr;
 }
 
-struct in_addr source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
+struct in_addr source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
+{
     const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
     u_int size_ip = IP_HL(ip)*4;
     if (size_ip < 20)
@@ -50,7 +54,8 @@ struct in_addr source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, c
 }
 
 
-char** get_device_list() {
+char** get_device_list()
+{
     pcap_if_t *alldevsp;
     char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -64,24 +69,17 @@ char** get_device_list() {
     for(pcap_if_t *temp=alldevsp; temp; temp = temp->next)
         ++cnt_devs;
 
-
+    printf("Available devices:\n");
     char **lst = (char **)malloc(cnt_devs * sizeof(char*));
-    for(pcap_if_t *temp=alldevsp; temp; temp = temp->next){
+    for(pcap_if_t *temp=alldevsp; temp; temp = temp->next) {
         static int i = 0;
         lst[i] = (char *)malloc(strlen(temp->name) * sizeof(char));
         strcpy(lst[i], temp->name);
         i++;
+        printf("%d : %s\n", i, temp->name);
     }
 
     return lst;
-}
-
-void print_inet_devices(char** devs) {
-    int n = sizeof(devs) / sizeof(devs[0]);
-
-    printf("The interfaces present on the system are:\n");
-    for (int i=0; i<n; ++i)
-        printf("%d : %s\n", i, devs[i]);
 }
 
 

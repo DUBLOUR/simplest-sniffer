@@ -1,6 +1,33 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include "model.h"
 
 
-bool convert_ip(char* str, struct Ipv6 res) {
-    return true;
+bool is_valid_ip(char* raw_ip)
+{
+    struct in_addr* addr = malloc(sizeof(struct in_addr));
+    bool valid = inet_aton(raw_ip, addr) != 0;
+    free(addr);
+    return valid;
 }
+
+void print_stat(struct StatResponse* stat)
+{
+    printf("dev: %s\nip: %s\npackets: %d\n",
+           stat->iface,
+           inet_ntoa(stat->ip),
+           stat->cnt);
+}
+
+void print_stats(int cnt, struct StatResponse** stats)
+{
+    for (int i=0; i<cnt; ++i)
+        print_stat(stats[i]);
+}
+
+
+void print_select_iface(char* iface)
+{
+    printf("%s is default now\n", iface);
+}
+

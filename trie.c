@@ -145,13 +145,12 @@ void traversing_dump(struct trie_node_t* t, int pos, int* total_size, int* cnt_n
             *total_size += sizeof(point_compressed) + sizeof(char)*path_len;
             return;
         }
-        point_compressed* p = (point_compressed*) data + *total_size;
+        point_compressed* p = (point_compressed*) (data + *total_size);
         p->value = t->value;
         p->path_len_bit = pos;
         p->path = NULL;
         *total_size += sizeof(point_compressed);
         memcpy(data + *total_size, bit_path, sizeof(char)*path_len);
-        printf("td %d %d %X\n", p->value, p->path_len_bit, *((unsigned*)bit_path) );
         *total_size += sizeof(char)*path_len;
         return;
     }
@@ -190,6 +189,7 @@ trie_compressed* trie_dump(trie *t)
 
     traversing_dump(t->root, 0, &(tc->data_len), &(tc->cnt_point), tmp_path, NULL);
     tc->data = malloc(sizeof(char)*(tc->data_len));
+
     int sz = 0, node_cnt = 0;
     traversing_dump(t->root, 0, &sz, &node_cnt, tmp_path, tc->data);
 
@@ -200,14 +200,15 @@ trie_compressed* trie_dump(trie *t)
 trie* trie_load(trie_compressed* tc)
 {
     trie* t = new_trie();
-
     void* vp = tc->data;
+
     for (int i=0; i<tc->cnt_point; i++) {
         point_compressed* p = (point_compressed*) vp;
-        trie_increase_val(t, vp+sizeof(point_compressed), p->path_len_bit, p->value);
-        size_t point_size = sizeof(point_compressed) +
-                            sizeof(char) * ((p->path_len_bit|7)>>3);
-        vp += point_size;
+        vp += sizeof(point_compressed);
+        trie_increase_val(t, vp, p->path_len_bit, p->value);
+        vp += sizeof(char) * ((p->path_len_bit|7)>>3);
+
+        fprintf(stderr, "%d : %d\n", i, p->value);
     }
     return t;
 }

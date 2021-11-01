@@ -3,13 +3,21 @@ project(simplest_sniffer C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(simplest_sniffer
+add_executable(ssniffer
         client.c
         messenger.c
-        messenger.h
         model.c
-        model.h
-        printer.c
-        printer.h
         usage_information.c
         usage_information.h)
+
+find_package (Threads)
+include(FindPCAP.cmake)
+
+add_executable(ssnifferd
+        daemon.c
+        stat_holder.c
+        trie.c
+        sniffer.c)
+
+target_link_libraries(ssnifferd ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(ssnifferd ${PCAP_LIBRARY})

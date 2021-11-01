@@ -1,14 +1,27 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "usage_information.h"
-#include "model.h"
-#include "printer.h"
 #include "messenger.h"
 const int INVALID_INPUT_CODE = 127;
 
+int fd_write, fd_read;
 
-int handle_start() {
+void init_connection()
+{
+    char *myfifo0 = "/tmp/myfifo00";
+    mknod(myfifo0, S_IFIFO|0666, 0);
+    fd_write = open(myfifo0, O_WRONLY|O_CREAT);
+
+    char *myfifo1 = "/tmp/myfifo11";
+    mknod(myfifo1, S_IFIFO|0666, 0);
+    fd_read = open(myfifo1, O_RDONLY|O_CREAT);
+}
+
+
+int handle_start()
+{
     printf("start sniff\n");
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
@@ -18,13 +31,14 @@ int handle_start() {
     if (daemon_is_sniffed())
         return 0;
 
-    send_command(DSTART_SNIFF);
+    send_command(fd_write, DSTART_SNIFF);
 
     return daemon_is_sniffed();
 }
 
 
-int handle_stop() {
+int handle_stop()
+{
     printf("stop sniff\n");
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
@@ -34,17 +48,17 @@ int handle_stop() {
     if (!daemon_is_sniffed())
         return 0;
 
-    send_command(DSTOP_SNIFF);
+    send_command(fd_write, DSTOP_SNIFF);
 
     return !daemon_is_sniffed();
 }
 
 
-int handle_show(char *raw_ip) {
+int handle_show(char *raw_ip)
+{
     printf("show %s\n", raw_ip);
 
-    struct Ipv6 ip;
-    if (!convert_ip(raw_ip, ip)) {
+    if (!is_valid_ip(raw_ip)) {
         print_help_invalid_ip();
         return INVALID_INPUT_CODE;
     }
@@ -54,84 +68,90 @@ int handle_show(char *raw_ip) {
         return 1;
     }
 
-    send_command(DSHOW_IPV6);
-    send_ip(ip);
+    send_command(fd_write, DSHOW_IPADDR);
+    send_ip(fd_write, raw_ip);
 
     struct StatResponse response[1];
-    if (!receive_stat(1, response))
+    if (!receive_stat(fd_read, 1, response))
         return 1;
 
-    print_stat(1, response);
+    print_stat(response);
     return 0;
 }
 
 
-int handle_select(char *iface) {
+int handle_select(char *iface)
+{
     printf("select %s\n", iface);
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
     }
 
-    send_command(DSELECT);
-    send_interface(iface);
+    send_command(fd_write, DSELECT);
+    send_interface(fd_write, iface);
 
     char *new_iface;
-    if (!receive_interface(new_iface))
+    if (!receive_interface(fd_read, new_iface))
         return 1;
 
-    print_select_iface(new_iface);
-    return !!strcmp(new_iface, iface);
+//    print_select_iface(new_iface);
+    return strcmp(new_iface, iface) != 0;
 }
 
 
-int handle_stat(char *iface) {
+int handle_stat(char *iface)
+{
     printf("stat %s\n", iface);
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
     }
 
-    send_command(DSTAT_FILTERED);
-    send_interface(iface);
+    send_command(fd_write, DSTAT_FILTERED);
+    send_interface(fd_write, iface);
 
     struct StatHeader header;
-    if (!receive_stat_header(header))
+    if (!receive_stat_header(fd_read, header))
         return 1;
 
     struct StatResponse response[header.cnt];
-    if (!receive_stat(header.cnt, response))
+    if (!receive_stat(fd_read, header.cnt, response))
         return 1;
 
-    print_stat(header.cnt, response);
+//    print_stat(header.cnt, response);
     return 0;
 }
 
 
-int handle_stat_all() {
+int handle_stat_all()
+{
     printf("stat all");
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
     }
 
-    send_command(DSTAT);
+    send_command(fd_write, DSTAT);
 
     struct StatHeader header;
-    if (!receive_stat_header(header))
+    if (!receive_stat_header(fd_write, header))
         return 1;
 
     struct StatResponse response[header.cnt];
-    if (!receive_stat(header.cnt, response))
+    if (!receive_stat(fd_read, header.cnt, response))
         return 1;
 
-    print_stat(header.cnt, response);
+//    print_stat(header.cnt, response);
     return 0;
 }
 
 
+
 int main (int argc, char **argv)
 {
+    init_connection();
+
 
     if (argc == 1) {
         print_help_general();

@@ -1,23 +1,13 @@
-#pragma once
-#include <stdbool.h> 
+#include <stdbool.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include "common.h"
 
-struct Ipv6
-{
-    unsigned char part[16];
-};
-
-struct StatHeader
-{
+struct StatHeader {
     int cnt;
 };
 
-struct StatResponse
-{
-    struct Ipv6 ip;
-    unsigned int cnt;
-    char iface[16];
-};
-
-
-bool convert_ip(char* str, struct Ipv6 res);
-
+bool is_valid_ip(char* raw_ip);
+void print_stat(struct StatResponse* stat);
+void print_stats(int cnt, struct StatResponse** stats);
+void print_select_iface(char* iface);
