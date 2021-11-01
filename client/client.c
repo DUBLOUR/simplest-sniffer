@@ -1,7 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 #include "usage_information.h"
 #include "messenger.h"
 const int INVALID_INPUT_CODE = 127;
@@ -10,19 +10,18 @@ int fd_write, fd_read;
 
 void init_connection()
 {
-    char *myfifo0 = "/tmp/myfifo00";
-    mknod(myfifo0, S_IFIFO|0666, 0);
-    fd_write = open(myfifo0, O_WRONLY|O_CREAT);
+    mknod(DAEMON_IPC_LISTENER, S_IFIFO|0666, 0);
+    fd_write = open(DAEMON_IPC_LISTENER, O_WRONLY|O_CREAT);
 
-    char *myfifo1 = "/tmp/myfifo11";
-    mknod(myfifo1, S_IFIFO|0666, 0);
-    fd_read = open(myfifo1, O_RDONLY|O_CREAT);
+    mknod(DAEMON_IPC_RESPONDER, S_IFIFO|0666, 0);
+    fd_read = open(DAEMON_IPC_RESPONDER, O_RDONLY|O_CREAT);
 }
 
 
 int handle_start()
 {
-    printf("start sniff\n");
+    fprintf(stderr, "Request start sniffing...\n");
+    init_connection();
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
@@ -39,7 +38,8 @@ int handle_start()
 
 int handle_stop()
 {
-    printf("stop sniff\n");
+    fprintf(stderr, "Request stop sniffing...\n");
+    init_connection();
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
@@ -56,7 +56,8 @@ int handle_stop()
 
 int handle_show(char *raw_ip)
 {
-    printf("show %s\n", raw_ip);
+    fprintf(stderr, "Request stat for %s...\n", raw_ip);
+    init_connection();
 
     if (!is_valid_ip(raw_ip)) {
         print_help_invalid_ip();
@@ -71,7 +72,7 @@ int handle_show(char *raw_ip)
     send_command(fd_write, DSHOW_IPADDR);
     send_ip(fd_write, raw_ip);
 
-    struct StatResponse response[1];
+    stat_response* response = (stat_response*)malloc(sizeof(stat_response));
     if (!receive_stat(fd_read, 1, response))
         return 1;
 
@@ -82,7 +83,9 @@ int handle_show(char *raw_ip)
 
 int handle_select(char *iface)
 {
-    printf("select %s\n", iface);
+    fprintf(stderr, "Request select interface %s\n", iface);
+    init_connection();
+
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
@@ -102,7 +105,9 @@ int handle_select(char *iface)
 
 int handle_stat(char *iface)
 {
-    printf("stat %s\n", iface);
+    fprintf(stderr, "Request statistics for %s...\n", iface);
+    init_connection();
+
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
@@ -111,11 +116,11 @@ int handle_stat(char *iface)
     send_command(fd_write, DSTAT_FILTERED);
     send_interface(fd_write, iface);
 
-    struct StatHeader header;
-    if (!receive_stat_header(fd_read, header))
+    stat_header header;
+    if (!receive_stat_header(fd_read, &header))
         return 1;
 
-    struct StatResponse response[header.cnt];
+    stat_response response[header.cnt];
     if (!receive_stat(fd_read, header.cnt, response))
         return 1;
 
@@ -126,7 +131,9 @@ int handle_stat(char *iface)
 
 int handle_stat_all()
 {
-    printf("stat all");
+    fprintf(stderr, "Request all statistic...\n");
+    init_connection();
+
     if (!daemon_is_up()) {
         print_help_daemon_is_down();
         return 1;
@@ -134,11 +141,11 @@ int handle_stat_all()
 
     send_command(fd_write, DSTAT);
 
-    struct StatHeader header;
-    if (!receive_stat_header(fd_write, header))
+    stat_header header;
+    if (!receive_stat_header(fd_write, &header))
         return 1;
 
-    struct StatResponse response[header.cnt];
+    stat_response response[header.cnt];
     if (!receive_stat(fd_read, header.cnt, response))
         return 1;
 
@@ -150,9 +157,6 @@ int handle_stat_all()
 
 int main (int argc, char **argv)
 {
-    init_connection();
-
-
     if (argc == 1) {
         print_help_general();
         return 0;

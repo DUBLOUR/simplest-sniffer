@@ -21,14 +21,14 @@ bool send_ip(int flow, char* raw_ip)
     return write(flow, raw_ip, strlen(raw_ip)) != -1;
 }
 
-bool receive_stat_header(int flow, struct StatHeader header)
+bool receive_stat_header(int flow, stat_header* header)
 {
-    return read(flow, &header, sizeof(struct StatHeader)) != -1;
+    return read(flow, &header, sizeof(stat_header)) != -1;
 }
 
-bool receive_stat(int flow, int cnt, struct StatResponse* response)
+bool receive_stat(int flow, int cnt, stat_response* response)
 {
-    return read(flow, response, sizeof(struct StatResponse)) != -1;
+    return read(flow, response, sizeof(stat_response)) != -1;
 }
 
 bool send_interface(int flow, char* iface)

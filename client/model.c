@@ -11,7 +11,7 @@ bool is_valid_ip(char* raw_ip)
     return valid;
 }
 
-void print_stat(struct StatResponse* stat)
+void print_stat(stat_response* stat)
 {
     printf("dev: %s\nip: %s\npackets: %d\n",
            stat->iface,
@@ -19,7 +19,7 @@ void print_stat(struct StatResponse* stat)
            stat->cnt);
 }
 
-void print_stats(int cnt, struct StatResponse** stats)
+void print_stats(int cnt, stat_response** stats)
 {
     for (int i=0; i<cnt; ++i)
         print_stat(stats[i]);

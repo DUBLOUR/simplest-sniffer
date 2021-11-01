@@ -26,7 +26,7 @@ void counting_addresses(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_c
         static int counter = 0;
         ++counter;
         int x = trie_get(current_stat_trie, &ip, 32);
-        printf("%d (%d) pack from %s %X\n", counter, x, inet_ntoa(ip), ip.s_addr);
+        printf("%d (%d) pack from %s\n", counter, x, inet_ntoa(ip));
     }
 }
 
@@ -81,19 +81,19 @@ void *start_counting_sniff(void *device)
 
 void *communicator()
 {
-    char *myfifo0 = "/tmp/myfifo00";
-    mknod(myfifo0, S_IFIFO|0666, 0);
-    int fd0 = open(myfifo0, O_RDONLY|O_CREAT);
+    mknod(DAEMON_IPC_LISTENER, S_IFIFO|0666, 0);
+    int fd0 = open(DAEMON_IPC_LISTENER, O_RDONLY|O_CREAT);
 
-    char *myfifo1 = "/tmp/myfifo11";
-    mknod(myfifo1, S_IFIFO|0666, 0);
-    int fd1 = open(myfifo1, O_WRONLY|O_CREAT);
-
+    mknod(DAEMON_IPC_RESPONDER, S_IFIFO|0666, 0);
+    int fd1 = open(DAEMON_IPC_RESPONDER, O_WRONLY|O_CREAT);
 
     printf("Start listening\n");
     for (;;) {
-        int command = -1;;
+        int command = -1;
         read(fd0, &command, 4);
+        if (command == -1)
+            break;
+
         printf("\nHandle command code %d\n", command);
 
         if (command == DSHOW_IPADDR) {
@@ -105,7 +105,7 @@ void *communicator()
 
             struct in_addr* addr = calloc(sizeof(struct in_addr), 1);
             inet_aton(raw_ip, addr);
-            struct StatResponse* res = calloc(sizeof(struct StatResponse), 1);
+            stat_response* res = calloc(sizeof(stat_response), 1);
             res->ip = *addr;
             res->cnt = trie_get(current_stat_trie, addr, 32);
             strncpy(res->iface, current_dev, strlen(current_dev));
@@ -114,10 +114,11 @@ void *communicator()
                    res->iface,
                    inet_ntoa(res->ip),
                    res->cnt);
-            write(fd1, res, sizeof(struct StatResponse));
+            write(fd1, res, sizeof(stat_response));
             free(raw_ip);
             free(addr);
             free(res);
+
             break;
         }
 
@@ -126,6 +127,11 @@ void *communicator()
         }
 
     }
+
+
+    close(fd0);
+    close(fd1);
+    pthread_exit(0);
 }
 
 
@@ -142,11 +148,15 @@ int main()
     all_inet_devs = get_device_list();
     current_dev = all_inet_devs[0];
 
-    pthread_t t_sniff, t_printer;
+    pthread_t t_sniff, t_comm;
     pthread_create(&t_sniff,NULL, start_counting_sniff, current_dev);
-    pthread_create(&t_printer,NULL, communicator, NULL);
+
+    for (;;) {
+        pthread_create(&t_comm, NULL, communicator, NULL);
+        pthread_join(t_comm, NULL);
+    }
 
     pthread_join(t_sniff,NULL);
-    pthread_join(t_printer,NULL);
+
 
 }

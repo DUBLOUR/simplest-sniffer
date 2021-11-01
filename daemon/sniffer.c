@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include "sniffer.h"
 
 /* IP header */
@@ -22,20 +21,6 @@ struct sniff_ip {
 #define IP_V(ip)		(((ip)->ip_vhl) >> 4)
 #define SIZE_ETHERNET 14
 
-
-void simple_source_extractor(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet)
-{
-    const struct sniff_ip *ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-    u_int size_ip = IP_HL(ip)*4;
-    if (size_ip < 20) {
-//        printf("   * Invalid IP header length: %u bytes\n", size_ip);
-        return;
-    }
-
-    static int count=0;
-    ++count;
-    printf("%d-th package is from %s\n", count, inet_ntoa(ip->ip_src));
-}
 
 struct in_addr empty_addr()
 {
