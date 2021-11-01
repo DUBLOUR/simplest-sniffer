@@ -15,3 +15,5 @@ If `SAVE_FILENAME` is empty then statistics is not persistent.
 ```ssniffer --help```
 
 ```sudo ssniffer show 8.8.8.8 count```
+(`sudo` is mandatory)
+
